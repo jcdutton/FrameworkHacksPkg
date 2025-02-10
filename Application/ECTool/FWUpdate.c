@@ -112,7 +112,7 @@ EFI_STATUS cmd_reflash(int argc, CHAR16** argv) {
 	EC_IMAGE_FMAP_HEADER* IncomingImageFlashMap = NULL;
 	EC_IMAGE_FMAP_AREA_HEADER* IncomingImageRoFridArea = NULL;
 	UINT16 RegionFlashMask = 0;
-	BOOLEAN flash_ro_requested = FALSE, flash_rw_requested = FALSE, flash_all_requested = FALSE;
+	BOOLEAN flash_ro_requested = FALSE, flash_rw_requested = FALSE, flash_all_requested = FALSE, flash_yes_requested = FALSE;
 	UINT16 RegionFlashDesireMask = 0xFFFF; // By default, we desire all regions
 	const FLASH_MAP* FinalFlashMap = NULL;
 
@@ -127,24 +127,29 @@ EFI_STATUS cmd_reflash(int argc, CHAR16** argv) {
 			flash_rw_requested = TRUE;
 		} else if(StrCmp(argv[i], L"--all") == 0) {
 			flash_all_requested = TRUE;
+		} else if(StrCmp(argv[i], L"--yes") == 0) {
+			flash_yes_requested = TRUE;
 		} else {
 			filename = argv[i];
 			// the filename is the last argument. All stop!
 			break;
 		}
 	}
+	BOOLEAN safety1 = flash_ro_requested || flash_rw_requested || flash_all_requested;
+	Print(L"Safety: %d\n", safety1);
 
-	if(!filename) {
-		Print(L"Usage: ectool reflash [options] FILE\n"
-		      L"\n"
-		      L"Attempts to safely reflash the Framework Laptop's EC\n"
-		      L"Preserves vital product data and configuration bits.\n"
-		      L"\n"
-		      L"Options:\n"
-		      L"    --ro        Only reflash the RO portion (and bootloader)\n"
-		      L"    --rw        Only reflash the RW portion\n"
-		      L"    -f          Force: Skip the battery and AC check\n"
-		      );
+	if(!filename || FALSE == safety1) {
+		Print(L"Usage: ectool reflash [options] FILE\n");
+		Print(L"\n");
+		Print(L"Attempts to safely reflash the Framework Laptop's EC\n");
+		Print(L"Preserves vital product data and configuration bits.\n");
+		Print(L"\n");
+		Print(L"Options:\n");
+		Print(L"    --ro        Only reflash the RO portion (and bootloader)\n");
+		Print(L"    --rw        Only reflash the RW portion\n");
+		Print(L"    --all       Only reflash both RO and RW portions\n");
+		Print(L"    --yes       Are you shure you wish to write to the flash\n");
+		Print(L"    -f          Force: Skip the battery and AC check\n\n");
 		return 1;
 	}
 
@@ -295,6 +300,11 @@ EFI_STATUS cmd_reflash(int argc, CHAR16** argv) {
 	Print(L"************************************************\n");
 	Print(L"*** DO NOT UNPLUG OR POWER OFF YOUR COMPUTER ***\n");
 	Print(L"************************************************\n\n");
+	if(FALSE == flash_yes_requested) {
+		Print(L"flash_yes_requested not set. If you really wish to flash the system add --yes\n");
+		goto Out;
+	}
+
 	if(FinalFlashMap->flags & FLASH_DEVICE_REQUIRES_UNLOCK) {
 		Print(L"Unlocking flash... ");
 		FlashNotifyParams.flags = FLASH_ACCESS_SPI;
